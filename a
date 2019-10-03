@@ -1,0 +1,323 @@
+library(shiny)
+library(shinydashboard)
+library(ggplot2)
+library(dplyr)
+library(MARX)
+library(purrr)
+library(scales)
+library(plotly)
+data <- MARX::dataset
+
+#Sidebar content of the 
+
+
+frow_coef_epsilon<-fluidRow(column(1,numericInput("rho","Rho:",min=-1,max=1,value=0.9),
+       numericInput("mu","mu:",value=1),
+       numericInput("sigma","sigma:",value=1)),
+column(4,selectInput(inputId="epsilon", label="Epsilon:", choices=c('t','normal','stable'), selected = NULL, multiple = FALSE,selectize = TRUE, width = NULL, size = NULL)))
+
+
+
+frow1 <- fluidRow(  valueBoxOutput("value1")  ,valueBoxOutput("value2")   ,valueBoxOutput("value3"))
+frowdata<-fluidRow( column(1,selectInput(inputId="MScommo", label="Chose a commodity:", choices=colnames(data[,-1]), selected = NULL, multiple = FALSE,selectize = TRUE, width = NULL, size = NULL)),
+                    column(2,selectInput(inputId="MStrade", label="Chose an exogenous variable:", choices=colnames(data[,-1]), selected = NULL, multiple = FALSE,selectize = TRUE, width = NULL, size = NULL)),
+                    column(3,numericInput("MaxLag","Maximum value of p:",value=6)),
+                    column(4,fileInput("file1", "Choose CSV File",
+                                       multiple = TRUE,
+                                       accept = c("text/csv",
+                                                  "text/comma-separated-values,text/plain",
+                                                  ".csv"))))
+
+frow_lag_lead <- fluidRow(  numericInput("ChosenP","p=r+s:",value=6),valueBoxOutput("Causal")  ,valueBoxOutput("NonCausal")   )
+frow_llh<-fluidRow(box(    title = "Likelihood"    ,status = "primary"    ,solidHeader = TRUE     ,collapsible = TRUE     ,tableOutput(outputId="llh") ,width = "300%" ))
+
+frow_criterion <- fluidRow(  valueBoxOutput("AIC")  ,valueBoxOutput("BIC")   ,valueBoxOutput("HQ"))
+frow_final_model<-fluidRow(column(1,tableOutput(outputId="FinalModel")),column(10,helpText("Fist Row is the intercept, the next one is the lag, then the lead qnd the last one is the exogenous coefficient ")))
+
+textt<-"Purely noncausal or causal models with additional regressors have the appealing feature to be (potentially) identifiable under Gaussianity, while the MAR parameters are not. By means of Monte
+Carlo simulations, we evaluate the performance of the ML estimator and a proposed model
+selection for the MARX model based on information criteria."
+frow_select_data<-fluidRow(column(1,selectInput(inputId="secu", label="Chose a commodity:", choices=colnames(data[,-1]), selected = NULL, multiple = FALSE,selectize = TRUE, width = NULL, size = NULL)),
+                           column(4,selectInput(inputId="Tsec", label="Chose an exogenous data:", choices=colnames(data[,-1]), selected = NULL, multiple = FALSE,selectize = TRUE, width = NULL, size = NULL)))
+
+frow2<-fluidRow(box(    title = "Revenue per Product"    ,status = "primary"    ,solidHeader = TRUE     ,collapsible = TRUE     ,plotOutput("revenuebyRegion", height = "300px") ,width = "300%" ) )
+frow3<-fluidRow(box(    title = "Simulation of Y Non Causal"    ,status = "primary"    ,solidHeader = TRUE     ,collapsible = TRUE     ,plotOutput("simulationNC", height = "300px"),width = "300%"  ) )
+frow4<-fluidRow(box(    title = "Simulation of Y Causal"    ,status = "primary"    ,solidHeader = TRUE     ,collapsible = TRUE     ,plotOutput("simulationC", height = "300px") ,width = "300%" ) )
+frow5<-fluidRow(box(    title = "commodity"    ,status = "primary"    ,solidHeader = TRUE     ,collapsible = TRUE     ,plotlyOutput("commodity", height = "300px"),width = "300%"  ) )
+frow6<-fluidRow(box(    title = "Trade Rate"    ,status = "primary"    ,solidHeader = TRUE     ,collapsible = TRUE     ,plotOutput("traderate", height = "300px"),width = "300%"  ) )
+frowf<-fluidRow(box(    title = "Forecast"    ,status = "primary"    ,solidHeader = TRUE     ,collapsible = TRUE     ,plotOutput("forecast", height = "300px"),width = "300%"  ) )
+frowLag<-fluidRow(box(    title = "Lag"    ,status = "primary"    ,solidHeader = TRUE     ,collapsible = TRUE     ,plotOutput("forecast", height = "300px"),width = "300%"  ) )
+
+frow_stable_coeff<-fluidRow(column(1,offset = -1  , 
+                                   numericInput("bet", "beta:",min = -1, max = 1, value = 0),
+                                  numericInput("alph", "alpha:",min = 0, max = 2, value = 0.5),
+                                  numericInput("gamm", "gamma:", min = -1, max = 1, value = 1)),
+                            column(5,offset=3,checkboxInput("Gaussian", "Gaussian",value=FALSE),
+                                  checkboxInput("Cauchy", "Cauchy",value=FALSE),
+                                  checkboxInput("Levy", "Lévy",value=FALSE)) )
+
+
+
+
+
+
+frow_forcast<-fluidRow(column(1,numericInput("N_C", "Causal Lag:", value = 0),
+                       numericInput("N_NC", "NonCausal Lag:", value = 1),
+                       numericInput("h", "Forecast Horizon", value = 5)),
+                       column(4,selectInput(inputId="secuf", label="Chose a commodity:", choices=colnames(data[,-1]), selected = NULL, multiple = FALSE,selectize = TRUE, width = NULL, size = NULL)))
+
+
+
+
+
+
+
+
+
+
+
+# combine the two fluid rows to make the 
+bodybody <- dashboardBody(tabItems(
+  # First tab content
+  tabItem(tabName ="dstable",
+          frow_stable_coeff,
+          frow2 ),
+  tabItem(tabName = "dels", h2("Widgets tab content")  ),
+  tabItem(tabName = "NonCausalAR",
+          frow_coef_epsilon,
+         helpText(textt),
+          frow3,frow4),
+  tabItem(tabName = "Commo",
+          frow_select_data,
+          frow5,frow6),
+  tabItem(tabName="forecast",
+          frow_forcast,
+          frowf,
+          downloadLink('dataForecast', 'Download Forecast')),
+  tabItem(tabName = "ModelSelection",
+          helpText("STEP 1:"),
+          frowdata,
+          frow_criterion,
+          helpText("STEP 2:"),
+          frow_lag_lead,
+          frow_llh,
+          helpText("STEP 3:"),
+          frow_final_model)
+) )
+
+
+ui <-dashboardPage(   dashboardHeader(title = "NonCausal Processes" ), 
+                      skin="blue",
+                      dashboardSidebar(sidebarMenu(   
+                        menuItem("Causal vs Non Causal AR",tabName = "NonCausalAR"),
+                        menuItem("Commodity Price Visualisation",tabName = "Commo"),
+                        menuItem("ModelSelection",tabName = "ModelSelection"),
+                        menuItem("Forecast",tabName ="forecast",icon=icon("calendar") ),
+                        menuItem("Stable Densities", tabName = "dstable"),
+                        menuItem("Improvement",tabName="dels"),
+                        menuItem("Read the code", icon = icon("send",lib='glyphicon'),              href = "https://www.salesforce.com")
+                        
+                      )),
+                      dashboardBody(bodybody))
+
+
+
+
+
+# create the server functions for the dashboard  
+server <- function(input, output,session) {   
+
+  observeEvent(input$Gaussian==TRUE,{updateNumericInput(session=session,inputId = "alph", value = 2)})
+  observeEvent(input$Cauchy==TRUE,{updateNumericInput(session=session,inputId = "alph", value = 1)
+    updateNumericInput(session=session,inputId = "bet", value = 0)})
+  observeEvent(input$Levy==TRUE,{updateNumericInput(session=session,inputId = "alph", value = 0.5)
+    updateNumericInput(session=session,inputId = "bet", value = 1)
+    updateNumericInput(session=session,inputId = "gamm", value = 1)})
+  
+  output$revenuebyRegion <- renderPlot({    
+    
+    x = seq(-4, 4, by = 0.01)
+    beta = seq(input$bet, input$bet, by = 0.25) %>% setNames(., .)
+    
+    data = map_dfr(
+      beta, .id = 'beta',
+      ~ list(x = x, y = stabledist::dstable(x, alpha=input$alph, .x,input$gamm, pm = 1)),
+    )
+    
+    ggplot(data) +
+      aes(x, y) +
+      geom_path()  
+  })
+  
+  
+  output$simulationNC <- renderPlot({  
+    dist.eps <- c(input$epsilon,input$mu,input$sigma) ## t-distributed errors with 1 degree of freedom and scale parameter 1
+    dist.x <- NULL ## standard normally distributed x variable exogenous
+    obs <- 1000
+    c_par <- 0 #vector of causal parameters
+    #vector of noncausal parameters.
+    exo_par <- 0 #Parameter of the exogenous variable.
+    a<-sim.marx(dist.eps,dist.x,obs,c_par,nc_par=input$rho,exo_par) ## Simulates a MARX(2,1,0) process
+    ts.plot(a$y)
+  })
+  
+  output$simulationC <- renderPlot({  
+    dist.eps <- c(input$epsilon,input$mu,input$sigma) ## t-distributed errors with 1 degree of freedom and scale parameter 1
+    dist.x <- NULL ## standard normally distributed x variable exogenous
+    obs <- 1000
+    c_par <- 0 #vector of causal parameters
+    #vector of noncausal parameters.
+    exo_par <- 0 #Parameter of the exogenous variable.
+    a<-sim.marx(dist.eps,dist.x,obs,c_par=input$rho,nc_par=0,exo_par) ## Simulates a MARX(2,1,0) process
+    ts.plot(a$y)
+  })
+  
+  data <- MARX::dataset
+  output$commodity <- renderPlotly({  
+    p <- plot_ly(data) %>%
+      add_trace(x = ~X_date_, y = data[,input$secu], type = 'scatter', mode = 'lines', name = 'Wind',
+                marker = list(color = '#991F36'),
+                hoverinfo = "text",
+                text = ~paste(input$secu, '')) %>%
+      
+      layout(title = '',
+             xaxis = list(title = ""),
+             yaxis = list(side = 'left', title = '', showgrid = FALSE, zeroline = FALSE))
+    
+    
+  })
+  
+  
+  output$traderate <- renderPlot({  
+    
+    ts.plot(data[,input$Tsec])
+  })
+  
+  
+  
+  
+  output$forecast<- renderPlot({  
+    y.for <- forecast.marx(y=data[,input$secuf], p_C=input$N_C, p_NC=input$N_NC, h=input$h, M=50, N=1000)
+    ts.plot(y.for)
+  })
+  
+  output$dataForecast <- downloadHandler(
+    filename = function() {
+      paste('data-', Sys.Date(), '.csv', sep='')
+    },
+    content = function(con) {
+      write.csv(y.for, con)
+    }
+  )
+  
+  
+  
+  output$value1 <- renderValueBox({   
+    
+    lagsel<-selection.lag.lead(data[,input$securities],data[,8], input$N_AR_p)
+    #lagsel$p.C<-str(lagsel$p.C)
+    
+    valueBox(     lagsel$p.C     ,"Number of Causal lags"      ,icon = icon("stats",lib='glyphicon')      ,color = "purple")    })
+  
+  output$value2 <- renderValueBox({   
+    
+    lagselnc<-selection.lag.lead(data[,input$securities],data[,8], input$N_AR_p)
+    
+    
+    valueBox(     lagselnc$p.NC     ,"Number of NonCausal lags"      ,icon = icon("stats",lib='glyphicon')      ,color = "purple")    })
+  
+  output$value3 <- renderValueBox({   
+    
+    lagllh<-selection.lag.lead(data[,input$securities],data[,8], input$N_AR_p)
+    
+    
+    valueBox(     lagllh$loglikelihood     ,"loglikelihood"      ,icon = icon("stats",lib='glyphicon')      ,color = "purple")    })
+  
+  
+  
+  output$AIC<-renderValueBox({
+  
+    sel<-selection.lag(data[,input$MScommo],data[,input$MStrade],input$MaxLag)
+  
+  p_aic_val<-min(sel$aic)
+  p_aic<-which(sel$aic ==p_aic_val, TRUE)[2]
+  valueBox(     p_aic     ,"AIC"      ,icon = icon("stats",lib='glyphicon')      ,color = "green")
+  
+  })
+  
+  output$BIC<-renderValueBox({
+    
+    selb<-selection.lag(data[,input$MScommo],data[,input$MStrade],input$MaxLag)
+    
+    p_bic_val<-min(selb$bic)
+    p_bic<-which(selb$bic ==p_bic_val, TRUE)[2]
+    valueBox(     p_bic     ,"BIC"      ,icon = icon("stats",lib='glyphicon')      ,color = "green")
+    
+  })
+  
+  output$HQ<-renderValueBox({
+    
+    selh<-selection.lag(data[,input$MScommo],data[,input$MStrade],input$MaxLag)
+    
+    p_hq_val<-min(selh$hq)
+    p_hq<-which(selh$hq ==p_hq_val, TRUE)[2]
+    valueBox(     p_hq     ,"HQ"      ,icon = icon("stats",lib='glyphicon')      ,color = "green")
+    
+  })
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  output$Causal<-renderValueBox({
+    
+    lag_lead<-selection.lag.lead(data[,input$MScommo],data[,input$MStrade],input$ChosenP)
+    
+    C<-lag_lead$p.C
+    valueBox(     C    ,"Causal lag"      ,icon = icon("stats",lib='glyphicon')      ,color = "red")
+    
+  })
+  
+  
+  
+  output$NonCausal<-renderValueBox({
+    
+    lag_lead<-selection.lag.lead(data[,input$MScommo],data[,input$MStrade],input$ChosenP)
+    
+    NC<-lag_lead$p.NC
+    valueBox(     NC    ,"NonCausal lag"      ,icon = icon("stats",lib='glyphicon')      ,color = "blue")
+    
+  })
+  
+  
+  output$llh<-renderTable(
+    
+    
+    t(selection.lag.lead(data[,input$MScommo],data[,input$MStrade],input$ChosenP )$loglikelihood)
+    
+  )
+  
+  
+  
+  
+  output$FinalModel<-renderTable(
+    
+    
+    final.model <- summary(mixed(data[,input$MScommo],data[,input$MStrade],selection.lag.lead(data[,input$MScommo],data[,input$MStrade],input$ChosenP)$p.C,selection.lag.lead(data[,input$MScommo],data[,input$MStrade],input$ChosenP)$p.NC))$coefficients
+    ,rownames = TRUE
+  )
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+}
